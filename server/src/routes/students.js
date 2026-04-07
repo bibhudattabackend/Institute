@@ -318,7 +318,7 @@ studentsRouter.patch("/:id", async (req, res) => {
   if (b.photo_url !== undefined) {
     const nextUrl = b.photo_url?.trim() || null;
     if (nextUrl !== student.photo_url) {
-      deletePhotoIfOwned(student.photo_url, instituteId);
+      await deletePhotoIfOwned(student.photo_url, instituteId);
       student.photo_url = nextUrl;
     }
   }
@@ -409,7 +409,7 @@ studentsRouter.delete("/:id", async (req, res) => {
   });
   if (!doc) return res.status(404).json({ error: "Student not found" });
 
-  deletePhotoIfOwned(doc.photo_url, instituteId);
+  await deletePhotoIfOwned(doc.photo_url, instituteId);
   await doc.deleteOne();
   return res.json({ ok: true });
 });

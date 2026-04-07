@@ -16,7 +16,7 @@ const studentSchema = new mongoose.Schema(
     phone: { type: String, default: null },
     email: { type: String, default: null },
     address: { type: String, default: null },
-    /** Relative URL e.g. /uploads/<instituteId>/file.jpg */
+    /** Cloudinary https URL, or legacy /uploads/... from old data */
     photo_url: { type: String, default: null },
     university_id: {
       type: mongoose.Schema.Types.ObjectId,

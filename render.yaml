@@ -1,9 +1,12 @@
 # Render Blueprint — https://render.com/docs/infrastructure-as-code
 #
 # After first deploy, open Dashboard → this service → Environment and set:
-#   MONGODB_URI   = MongoDB Atlas connection string
-#   JWT_SECRET    = long random string (production)
-#   CLIENT_ORIGIN = your frontend URL, e.g. https://your-app.vercel.app
+#   MONGODB_URI              = MongoDB Atlas connection string
+#   JWT_SECRET               = long random string (production)
+#   CLIENT_ORIGIN            = your frontend URL, e.g. https://your-app.vercel.app
+#   CLOUDINARY_CLOUD_NAME    = required for student photo uploads
+#   CLOUDINARY_API_KEY
+#   CLOUDINARY_API_SECRET
 #
 # Build runs seed after install (needs MONGODB_URI set before deploy). Duplicate institutes are skipped.
 
