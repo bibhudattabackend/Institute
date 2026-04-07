@@ -18,6 +18,31 @@ function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** India (IST) calendar date parts — matches how due dates are stored (YYYY-MM-DD). */
+function istCalendarParts(d) {
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t) => Number(p.find((x) => x.type === t)?.value);
+  return { y: get("year"), m: get("month"), day: get("day") };
+}
+
+/** Days from IST "today" to due date (0 = due today, negative = overdue). */
+function calendarDaysUntilDueIST(dueYmd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dueYmd).trim());
+  if (!m) return null;
+  const dueY = Number(m[1]);
+  const dueM = Number(m[2]);
+  const dueD = Number(m[3]);
+  const { y, m: mo, day } = istCalendarParts(new Date());
+  const dueUtc = Date.UTC(dueY, dueM - 1, dueD);
+  const todayUtc = Date.UTC(y, mo - 1, day);
+  return Math.round((dueUtc - todayUtc) / 86400000);
+}
+
 async function nextAdmissionNo(instituteId) {
   const updated = await Institute.findByIdAndUpdate(
     instituteId,
@@ -209,9 +234,6 @@ studentsRouter.get("/insights", async (req, res) => {
     .select("full_name admission_no phone installments")
     .lean();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const pending_installments = [];
   for (const s of instRows) {
     for (const ins of s.installments || []) {
@@ -221,11 +243,13 @@ studentsRouter.get("/insights", async (req, res) => {
       const dueStr = ins.due_date ? String(ins.due_date).trim() : "";
       let daysUntil = null;
       let overdue = false;
+      let dueToday = false;
       if (dueStr) {
-        const dueTime = new Date(`${dueStr}T12:00:00`);
-        if (!Number.isNaN(dueTime.getTime())) {
-          daysUntil = Math.round((dueTime - today) / (24 * 60 * 60 * 1000));
-          overdue = daysUntil < 0;
+        const n = calendarDaysUntilDueIST(dueStr);
+        if (n !== null) {
+          daysUntil = n;
+          overdue = n < 0;
+          dueToday = n === 0;
         }
       }
       pending_installments.push({
@@ -237,15 +261,14 @@ studentsRouter.get("/insights", async (req, res) => {
         amount: Math.round(amt * 100) / 100,
         days_until: daysUntil,
         overdue,
+        due_today: dueToday,
       });
     }
   }
   pending_installments.sort((a, b) => {
-    const ta = a.due_date ? new Date(`${a.due_date}T12:00:00`).getTime() : 0;
-    const tb = b.due_date ? new Date(`${b.due_date}T12:00:00`).getTime() : 0;
-    const fa = Number.isNaN(ta) ? 0 : ta;
-    const fb = Number.isNaN(tb) ? 0 : tb;
-    return fa - fb;
+    const ka = /^\d{4}-\d{2}-\d{2}$/.test(a.due_date || "") ? a.due_date : "";
+    const kb = /^\d{4}-\d{2}-\d{2}$/.test(b.due_date || "") ? b.due_date : "";
+    return ka.localeCompare(kb);
   });
 
   return res.json({

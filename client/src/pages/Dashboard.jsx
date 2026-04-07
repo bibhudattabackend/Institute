@@ -163,16 +163,14 @@ export default function Dashboard() {
                       {row.overdue ? (
                         <span className="pill danger-soft">
                           Overdue
-                          {row.days_until != null ? ` · ${Math.abs(row.days_until)}d` : ""}
+                          {row.days_until != null ? ` · ${Math.abs(row.days_until)}d late` : ""}
                         </span>
+                      ) : row.due_today ? (
+                        <span className="pill warn-soft">Due today</span>
+                      ) : row.days_until != null && row.days_until > 0 ? (
+                        <span className="pill upcoming-soft">Due in {row.days_until}d</span>
                       ) : row.days_until != null ? (
-                        <span className="muted" style={{ fontSize: 13 }}>
-                          {row.days_until === 0
-                            ? "Due today"
-                            : row.days_until > 0
-                              ? `Due in ${row.days_until}d`
-                              : `Overdue ${Math.abs(row.days_until)}d`}
-                        </span>
+                        <span className="pill danger-soft">Overdue</span>
                       ) : (
                         "—"
                       )}
