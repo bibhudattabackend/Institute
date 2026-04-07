@@ -12,12 +12,14 @@ import { courseFeesRouter } from "./routes/courseFees.js";
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
-/** Comma-separated list, e.g. https://app.vercel.app,http://localhost:5173 */
-let corsOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+const DEFAULT_CLIENT_ORIGIN = "https://institute-sandy-beta.vercel.app";
+
+/** Comma-separated frontend origins (e.g. two Vercel preview URLs) */
+let corsOrigins = (process.env.CLIENT_ORIGIN || DEFAULT_CLIENT_ORIGIN)
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-if (corsOrigins.length === 0) corsOrigins = ["http://localhost:5173"];
+if (corsOrigins.length === 0) corsOrigins = [DEFAULT_CLIENT_ORIGIN];
 
 if (!isCloudinaryEnabled()) {
   console.warn(
