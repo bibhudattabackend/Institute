@@ -49,6 +49,18 @@ const studentSchema = new mongoose.Schema(
     mark_12th: { type: String, default: null },
     mark_graduation: { type: String, default: null },
     aadhaar_last4: { type: String, default: null },
+    /** Compliance / reporting (optional) */
+    ncte_sanction_ref: { type: String, default: null, trim: true },
+    b_ed_affiliation_no: { type: String, default: null, trim: true },
+    /** Auto receipt IDs when fee is recorded */
+    payment_receipts: [
+      {
+        receipt_no: { type: String, required: true, trim: true },
+        amount: { type: Number, required: true, min: 0 },
+        recorded_at: { type: Date, default: Date.now },
+        note: { type: String, default: null, trim: true },
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -80,6 +92,15 @@ studentSchema.set("toJSON", {
 
     const inst = Array.isArray(ret.installments) ? ret.installments : [];
     ret.installments_total = inst.reduce((s, x) => s + (Number(x?.amount) || 0), 0);
+
+    if (Array.isArray(ret.payment_receipts)) {
+      ret.payment_receipts = ret.payment_receipts.map((r) => ({
+        receipt_no: r.receipt_no,
+        amount: r.amount,
+        recorded_at: r.recorded_at ? new Date(r.recorded_at).toISOString() : null,
+        note: r.note || null,
+      }));
+    }
 
     return ret;
   },

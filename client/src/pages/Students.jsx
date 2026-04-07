@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
+import { api, apiDownloadBlob, apiText } from "../api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Students() {
+  const { isPrincipal } = useAuth();
   const [students, setStudents] = useState([]);
   const [years, setYears] = useState([]);
   const [q, setQ] = useState("");
@@ -42,7 +44,65 @@ export default function Students() {
     };
   }, [query]);
 
+  async function downloadCsv() {
+    try {
+      const blob = await apiDownloadBlob("/api/students/export.csv");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "students.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setError(e.message || "Export failed");
+    }
+  }
+
+  async function copyDigest() {
+    try {
+      const text = await apiText("/api/students/operations-digest");
+      await navigator.clipboard.writeText(text);
+      alert("Weekly summary copied — paste into email or WhatsApp.");
+    } catch (e) {
+      setError(e.message || "Could not load digest");
+    }
+  }
+
+  function whatsappReminder() {
+    const lines = students
+      .filter((s) => s.remaining_amount != null && Number(s.remaining_amount) > 0)
+      .slice(0, 15)
+      .map(
+        (s) =>
+          `• ${s.full_name} (${s.admission_no}) — balance ₹${Number(s.remaining_amount).toLocaleString("en-IN")}`
+      );
+    const body = [
+      `Namaste,`,
+      ``,
+      `Yeh students par fee balance pending hai — kripya jald jama karein:`,
+      ``,
+      lines.length ? lines.join("\n") : "(is filter mein koi pending balance nahi dikha)",
+      ``,
+      `(Institute portal se auto-generated list)`,
+    ].join("\n");
+    void navigator.clipboard.writeText(body);
+    alert("Message copied — WhatsApp / SMS par paste kar dein.");
+  }
+
+  async function downloadPack(studentId, admissionNo) {
+    try {
+      const blob = await apiDownloadBlob(`/api/students/${studentId}/document-pack`);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `admission-${admissionNo || studentId}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setError(e.message || "Download failed");
+    }
+  }
+
   async function removeStudent(s) {
+    if (!isPrincipal) return;
     if (!window.confirm(`${s.full_name} ka record delete karein?`)) return;
     setDeleting(s.id);
     setError("");
@@ -69,6 +129,17 @@ export default function Students() {
       </div>
 
       <div className="card" style={{ marginBottom: "16px" }}>
+        <div className="row" style={{ flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <button type="button" className="btn ghost" onClick={downloadCsv}>
+            Export Excel (CSV)
+          </button>
+          <button type="button" className="btn ghost" onClick={copyDigest}>
+            Copy weekly summary
+          </button>
+          <button type="button" className="btn ghost" onClick={whatsappReminder}>
+            Copy fee reminder text
+          </button>
+        </div>
         <div className="row">
           <div className="field" style={{ marginBottom: 0, flex: "1 1 220px" }}>
             <label htmlFor="search">Search</label>
@@ -170,14 +241,19 @@ export default function Students() {
                       <Link className="btn ghost" to={`/students/${s.id}/edit`}>
                         Edit
                       </Link>
-                      <button
-                        type="button"
-                        className="btn ghost danger"
-                        disabled={deleting === s.id}
-                        onClick={() => removeStudent(s)}
-                      >
-                        Delete
+                      <button type="button" className="btn ghost" onClick={() => downloadPack(s.id, s.admission_no)}>
+                        ZIP pack
                       </button>
+                      {isPrincipal ? (
+                        <button
+                          type="button"
+                          className="btn ghost danger"
+                          disabled={deleting === s.id}
+                          onClick={() => removeStudent(s)}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

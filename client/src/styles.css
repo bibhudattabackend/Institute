@@ -486,6 +486,14 @@ tbody tr:hover td {
     background-clip: unset !important;
     color: #1a365d !important;
   }
+
+  .letter-sheet--t2 .letter-head h1 {
+    color: #7c2d12 !important;
+  }
+
+  .letter-sheet--t3 .letter-head h1 {
+    color: #334155 !important;
+  }
   .letter-sheet {
     box-shadow: none !important;
     border: 1px solid #e2e8f0 !important;
@@ -503,6 +511,16 @@ tbody tr:hover td {
     -webkit-background-clip: unset !important;
     background-clip: unset !important;
     color: #1a365d !important;
+  }
+
+  .app-form-sheet--t2 .app-form-title,
+  .app-form-sheet--t2 .app-form-sub {
+    color: #7c2d12 !important;
+  }
+
+  .app-form-sheet--t3 .app-form-title,
+  .app-form-sheet--t3 .app-form-sub {
+    color: #334155 !important;
   }
 }
 
@@ -950,4 +968,173 @@ tbody tr:hover td {
   border-top: 1px solid #1a365d;
   width: 200px;
   margin-bottom: 6px;
+}
+
+/* Letter / application template variants (Profile → Letter template 1–3) */
+.letter-sheet--t1 {
+  --doc-navy: #1a365d;
+  --doc-teal: #0f766e;
+}
+
+.letter-sheet--t2 {
+  --doc-navy: #7c2d12;
+  --doc-teal: #b45309;
+}
+
+.letter-sheet--t2::before {
+  background: linear-gradient(90deg, #7c2d12 0%, #b45309 50%, #92400e 100%);
+}
+
+.letter-sheet--t2 .letter-head {
+  border-top-color: #7c2d12;
+}
+
+.letter-sheet--t2 .letter-ref {
+  border-left-color: #7c2d12;
+}
+
+.letter-sheet--t2 .letter-body strong {
+  color: #7c2d12;
+}
+
+.letter-sheet--t3 {
+  --doc-navy: #334155;
+  --doc-teal: #475569;
+}
+
+.letter-sheet--t3::before {
+  height: 4px;
+  background: #334155;
+}
+
+.letter-sheet--t3 .letter-head {
+  border-top-color: #334155;
+  box-shadow: none;
+}
+
+.letter-sheet--t3 .letter-ref {
+  border-left-color: #475569;
+  background: #f8fafc;
+}
+
+.letter-sheet--t3 .letter-body strong {
+  color: #334155;
+}
+
+.app-form-sheet--t1 {
+  --doc-navy: #1a365d;
+}
+
+.app-form-sheet--t2::before {
+  background: linear-gradient(90deg, #7c2d12 0%, #b45309 50%, #92400e 100%);
+}
+
+.app-form-sheet--t2 .app-form-header {
+  border-top-color: #7c2d12;
+}
+
+.app-form-sheet--t2 .app-form-title,
+.app-form-sheet--t2 .app-form-sub {
+  color: #7c2d12;
+}
+
+.app-form-sheet--t2 .app-form-section {
+  background: #7c2d12 !important;
+  border-color: #7c2d12 !important;
+}
+
+.app-form-sheet--t2 .app-form-declaration {
+  border-left-color: #b45309;
+}
+
+.app-form-sheet--t3::before {
+  height: 4px;
+  background: #334155;
+}
+
+.app-form-sheet--t3 .app-form-header {
+  border-top-color: #334155;
+  box-shadow: none;
+}
+
+.app-form-sheet--t3 .app-form-title,
+.app-form-sheet--t3 .app-form-sub {
+  color: #334155;
+}
+
+.app-form-sheet--t3 .app-form-section {
+  background: #334155 !important;
+  border-color: #334155 !important;
+}
+
+.app-form-sheet--t3 .app-form-declaration {
+  border-left-color: #475569;
+}
+
+/* Printable address labels (A4 grid) */
+.labels-sheet {
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 210mm;
+}
+
+.labels-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid #cbd5e1;
+}
+
+.label-cell {
+  border: 1px dashed #94a3b8;
+  padding: 12px 14px;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  page-break-inside: avoid;
+  background: #fafafa;
+}
+
+.label-institute {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.label-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.label-meta {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.muted-small {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+@media print {
+  .labels-sheet {
+    border: none;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+
+  .label-cell {
+    background: #fff;
+    min-height: 36mm;
+  }
 }

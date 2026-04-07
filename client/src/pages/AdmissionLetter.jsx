@@ -55,6 +55,7 @@ export default function AdmissionLetter() {
   }
 
   const { institute, student, university } = data;
+  const templateT = Math.min(3, Math.max(1, Number(institute.letter_template) || 1));
   const headLine =
     institute.letter_head_line ||
     "Teacher Education Programme (B.Ed)";
@@ -83,7 +84,7 @@ export default function AdmissionLetter() {
         </button>
       </div>
 
-      <div className="letter-sheet">
+      <div className={`letter-sheet letter-sheet--t${templateT}`}>
         <div className="letter-head">
           {institute.logo_url ? (
             <div className="letter-logo-wrap">
@@ -94,6 +95,12 @@ export default function AdmissionLetter() {
           <div className="letter-meta">{headLine}</div>
           {institute.address ? <div className="letter-meta">{institute.address}</div> : null}
           {institute.phone ? <div className="letter-meta">Phone: {institute.phone}</div> : null}
+          {institute.ncte_registration_no ? (
+            <div className="letter-meta">NCTE registration: {institute.ncte_registration_no}</div>
+          ) : null}
+          {institute.affiliation_code ? (
+            <div className="letter-meta">Affiliation code: {institute.affiliation_code}</div>
+          ) : null}
         </div>
 
         <div className="letter-ref">

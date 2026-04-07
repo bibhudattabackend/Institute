@@ -29,6 +29,8 @@ const empty = {
   mark_12th: "",
   mark_graduation: "",
   aadhaar_last4: "",
+  ncte_sanction_ref: "",
+  b_ed_affiliation_no: "",
 };
 
 export default function StudentForm() {
@@ -41,6 +43,7 @@ export default function StudentForm() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [uploading, setUploading] = useState(false);
+  const [receipts, setReceipts] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +101,10 @@ export default function StudentForm() {
             mark_12th: student.mark_12th || "",
             mark_graduation: student.mark_graduation || "",
             aadhaar_last4: student.aadhaar_last4 || "",
+            ncte_sanction_ref: student.ncte_sanction_ref || "",
+            b_ed_affiliation_no: student.b_ed_affiliation_no || "",
           });
+          setReceipts(Array.isArray(student.payment_receipts) ? student.payment_receipts : []);
         }
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load");
@@ -429,6 +435,45 @@ export default function StudentForm() {
         <button type="button" className="btn" style={{ marginTop: 8 }} onClick={addInstallmentRow}>
           + Add installment
         </button>
+
+        {isEdit && receipts.length > 0 ? (
+          <div className="card" style={{ marginTop: "18px" }}>
+            <h3 className="form-section-title" style={{ marginTop: 0 }}>
+              Fee receipts (auto)
+            </h3>
+            <p className="muted" style={{ fontSize: 13 }}>Har baar jab amount paid badhta hai, naya receipt ID generate hota hai.</p>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {receipts.map((r, i) => (
+                <li key={i} style={{ marginBottom: 6 }}>
+                  <strong>{r.receipt_no}</strong> — ₹{Number(r.amount).toLocaleString("en-IN")}
+                  {r.recorded_at ? ` — ${new Date(r.recorded_at).toLocaleString()}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <h2 className="form-section-title" style={{ marginTop: "24px" }}>
+          Compliance / reporting (optional)
+        </h2>
+        <div className="form-grid">
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor="ncte_sanction_ref">NCTE / sanction reference</label>
+            <input
+              id="ncte_sanction_ref"
+              value={form.ncte_sanction_ref}
+              onChange={(e) => set("ncte_sanction_ref", e.target.value)}
+            />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor="b_ed_affiliation_no">B.Ed affiliation / university ref no.</label>
+            <input
+              id="b_ed_affiliation_no"
+              value={form.b_ed_affiliation_no}
+              onChange={(e) => set("b_ed_affiliation_no", e.target.value)}
+            />
+          </div>
+        </div>
 
         <h2 className="form-section-title" style={{ marginTop: "24px" }}>
           Personal

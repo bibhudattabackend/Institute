@@ -60,6 +60,7 @@ export default function ApplicationForm() {
   }
 
   const { institute, student, university } = data;
+  const templateT = Math.min(3, Math.max(1, Number(institute.letter_template) || 1));
   const fee =
     student.course_fee_amount != null
       ? `₹${Number(student.course_fee_amount).toLocaleString("en-IN")}`
@@ -92,7 +93,7 @@ export default function ApplicationForm() {
         </button>
       </div>
 
-      <div className="app-form-sheet">
+      <div className={`app-form-sheet app-form-sheet--t${templateT}`}>
         {institute.logo_url ? (
           <div className="app-form-logo-row">
             <img src={institute.logo_url} alt="" className="app-form-institute-logo" />
@@ -104,6 +105,12 @@ export default function ApplicationForm() {
             <div className="app-form-sub">{institute.name}</div>
             {institute.address ? <div className="app-form-meta">{institute.address}</div> : null}
             {institute.phone ? <div className="app-form-meta">Phone: {institute.phone}</div> : null}
+            {institute.ncte_registration_no ? (
+              <div className="app-form-meta">NCTE / reg.: {institute.ncte_registration_no}</div>
+            ) : null}
+            {institute.affiliation_code ? (
+              <div className="app-form-meta">Affiliation: {institute.affiliation_code}</div>
+            ) : null}
           </div>
           <div className="app-form-photo-box">
             {student.photo_url ? (
@@ -207,6 +214,18 @@ export default function ApplicationForm() {
               <th>Aadhaar (last 4)</th>
               <td colSpan={3}>{dash(student.aadhaar_last4)}</td>
             </tr>
+            {student.ncte_sanction_ref ? (
+              <tr>
+                <th>NCTE sanction ref.</th>
+                <td colSpan={3}>{dash(student.ncte_sanction_ref)}</td>
+              </tr>
+            ) : null}
+            {student.b_ed_affiliation_no ? (
+              <tr>
+                <th>B.Ed affiliation no.</th>
+                <td colSpan={3}>{dash(student.b_ed_affiliation_no)}</td>
+              </tr>
+            ) : null}
             <tr>
               <th>Address</th>
               <td colSpan={3} style={{ whiteSpace: "pre-wrap" }}>

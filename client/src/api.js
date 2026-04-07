@@ -28,6 +28,33 @@ export async function api(path, options = {}) {
   return data;
 }
 
+/** Download binary (ZIP, etc.) */
+export async function apiDownloadBlob(path) {
+  const res = await fetch(`${base}${path}`, { headers: authHeader() });
+  if (!res.ok) {
+    const text = await res.text();
+    let errMsg = text;
+    try {
+      const j = JSON.parse(text);
+      errMsg = j.error || text;
+    } catch {
+      /* plain text */
+    }
+    throw new Error(errMsg || res.statusText);
+  }
+  return res.blob();
+}
+
+/** Plain text (digest) */
+export async function apiText(path) {
+  const res = await fetch(`${base}${path}`, { headers: authHeader() });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.text();
+}
+
 /** Multipart upload (field name: photo) */
 export async function apiUpload(path, formData) {
   const res = await fetch(`${base}${path}`, {

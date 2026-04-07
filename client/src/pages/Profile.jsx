@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { api, apiUpload } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Profile() {
-  const { institute, refreshInstitute } = useAuth();
+  const { institute, refreshInstitute, isPrincipal } = useAuth();
   const [form, setForm] = useState({
     name: "",
     phone: "",
     address: "",
     principal_name: "",
     letter_head_line: "",
+    letter_template: 1,
+    ncte_registration_no: "",
+    affiliation_code: "",
+    compliance_notes: "",
     current_password: "",
     password: "",
   });
+  const [staffList, setStaffList] = useState([]);
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
+  const [staffName, setStaffName] = useState("");
 
   useEffect(() => {
     if (!institute) return;
@@ -23,8 +32,28 @@ export default function Profile() {
       address: institute.address || "",
       principal_name: institute.principal_name || "",
       letter_head_line: institute.letter_head_line || "",
+      letter_template: institute.letter_template ?? 1,
+      ncte_registration_no: institute.ncte_registration_no || "",
+      affiliation_code: institute.affiliation_code || "",
+      compliance_notes: institute.compliance_notes || "",
     }));
   }, [institute]);
+
+  useEffect(() => {
+    if (!isPrincipal) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { staff } = await api("/api/auth/staff");
+        if (!cancelled) setStaffList(staff || []);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrincipal, institute]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,6 +103,41 @@ export default function Profile() {
     }
   }
 
+  async function addStaff(e) {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    try {
+      await api("/api/auth/staff", {
+        method: "POST",
+        body: JSON.stringify({
+          email: staffEmail,
+          password: staffPassword,
+          name: staffName || undefined,
+        }),
+      });
+      setStaffEmail("");
+      setStaffPassword("");
+      setStaffName("");
+      const { staff } = await api("/api/auth/staff");
+      setStaffList(staff || []);
+      setMessage("Staff account created.");
+    } catch (err) {
+      setError(err.message || "Could not add staff");
+    }
+  }
+
+  async function removeStaff(id) {
+    if (!window.confirm("Remove this staff login?")) return;
+    try {
+      await api(`/api/auth/staff/${id}`, { method: "DELETE" });
+      setStaffList((list) => list.filter((s) => s.id !== id));
+      setMessage("Staff removed.");
+    } catch (err) {
+      setError(err.message || "Remove failed");
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
@@ -86,6 +150,10 @@ export default function Profile() {
         address: form.address,
         principal_name: form.principal_name,
         letter_head_line: form.letter_head_line,
+        letter_template: Number(form.letter_template),
+        ncte_registration_no: form.ncte_registration_no || null,
+        affiliation_code: form.affiliation_code || null,
+        compliance_notes: form.compliance_notes || null,
       };
       if (form.password) {
         payload.password = form.password;
@@ -104,6 +172,8 @@ export default function Profile() {
       setBusy(false);
     }
   }
+
+  if (!isPrincipal) return <Navigate to="/" replace />;
 
   return (
     <div className="page">
@@ -180,6 +250,44 @@ export default function Profile() {
             />
           </div>
           <div className="field">
+            <label htmlFor="letter_template">Letter / application template</label>
+            <select
+              id="letter_template"
+              value={form.letter_template}
+              onChange={(e) => set("letter_template", Number(e.target.value))}
+            >
+              <option value={1}>Classic (navy header)</option>
+              <option value={2}>Minimal (accent border)</option>
+              <option value={3}>Bilingual-style (extra top rule)</option>
+            </select>
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor="ncte_registration_no">NCTE / council registration (optional)</label>
+            <input
+              id="ncte_registration_no"
+              value={form.ncte_registration_no}
+              onChange={(e) => set("ncte_registration_no", e.target.value)}
+              placeholder="Reporting ke liye"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="affiliation_code">Affiliation / code (optional)</label>
+            <input
+              id="affiliation_code"
+              value={form.affiliation_code}
+              onChange={(e) => set("affiliation_code", e.target.value)}
+            />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor="compliance_notes">Compliance notes (optional)</label>
+            <textarea
+              id="compliance_notes"
+              value={form.compliance_notes}
+              onChange={(e) => set("compliance_notes", e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="field">
             <label htmlFor="current_password">Current password (password change ke liye)</label>
             <input
               id="current_password"
@@ -206,6 +314,55 @@ export default function Profile() {
           {busy ? "Saving…" : "Save changes"}
         </button>
       </form>
+
+      <div className="card" style={{ marginTop: "18px" }}>
+        <h2 className="form-section-title">Staff (clerk) logins</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Clerk sirf students dekh / edit kar sakta hai — delete, profile, fees master nahi.
+        </p>
+        <ul style={{ margin: "12px 0", paddingLeft: "20px" }}>
+          {staffList.map((s) => (
+            <li key={s.id} style={{ marginBottom: 8 }}>
+              <strong>{s.email}</strong>
+              {s.name ? ` — ${s.name}` : ""}
+              <button type="button" className="btn ghost danger" style={{ marginLeft: 12 }} onClick={() => removeStaff(s.id)}>
+                Remove
+              </button>
+            </li>
+          ))}
+          {staffList.length === 0 ? <li className="muted">Abhi koi staff nahi</li> : null}
+        </ul>
+        <form className="form-grid" style={{ marginTop: 16 }} onSubmit={addStaff}>
+          <div className="field">
+            <label>New staff email</label>
+            <input
+              type="email"
+              value={staffEmail}
+              onChange={(e) => setStaffEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Temporary password</label>
+            <input
+              type="password"
+              value={staffPassword}
+              onChange={(e) => setStaffPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Name (optional)</label>
+            <input value={staffName} onChange={(e) => setStaffName(e.target.value)} />
+          </div>
+          <div className="field" style={{ alignSelf: "end" }}>
+            <button className="btn primary" type="submit">
+              Add staff
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

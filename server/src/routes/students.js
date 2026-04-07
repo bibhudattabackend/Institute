@@ -3,9 +3,13 @@ import mongoose from "mongoose";
 import { Institute } from "../models/Institute.js";
 import { Student } from "../models/Student.js";
 import { University } from "../models/University.js";
-import { authRequired } from "../middleware/auth.js";
+import { AuditLog } from "../models/AuditLog.js";
+import { authRequired, principalRequired } from "../middleware/auth.js";
 import { findMatchingFee } from "./courseFees.js";
 import { deletePhotoIfOwned } from "../utils/photo.js";
+import { logAudit } from "../utils/audit.js";
+import { recordPaymentDelta } from "../utils/receipts.js";
+import { buildAdmissionPdf, zipAdmissionPack } from "../utils/documentPack.js";
 
 export const studentsRouter = Router();
 studentsRouter.use(authRequired);
@@ -123,6 +127,115 @@ studentsRouter.get("/years", async (req, res) => {
   return res.json({ years });
 });
 
+/** Month-wise fee collected (from payment_receipts) */
+studentsRouter.get("/fee-stats", async (req, res) => {
+  const instituteId = req.institute.id;
+  const rows = await Student.find({ institute_id: instituteId }).select("payment_receipts").lean();
+  const byMonth = {};
+  for (const s of rows) {
+    for (const r of s.payment_receipts || []) {
+      const d = r.recorded_at ? new Date(r.recorded_at) : new Date();
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      byMonth[key] = (byMonth[key] || 0) + (Number(r.amount) || 0);
+    }
+  }
+  const sorted = Object.entries(byMonth)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, total]) => ({ month, total: Math.round(total * 100) / 100 }));
+  return res.json({ series: sorted });
+});
+
+studentsRouter.get("/export.csv", async (req, res) => {
+  const instituteId = req.institute.id;
+  const rows = await Student.find({ institute_id: instituteId })
+    .sort({ createdAt: -1 })
+    .lean();
+  const esc = (v) => {
+    if (v == null) return "";
+    const s = String(v).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+  const header = [
+    "admission_no",
+    "full_name",
+    "phone",
+    "academic_year",
+    "admission_date",
+    "course_fee",
+    "amount_paid",
+    "remaining",
+  ].join(",");
+  const lines = rows.map((r) => {
+    const fee = r.course_fee_amount != null ? Number(r.course_fee_amount) : null;
+    const paid = Number(r.amount_paid || 0);
+    const rem = fee != null ? Math.max(0, fee - paid) : "";
+    return [
+      esc(r.admission_no),
+      esc(r.full_name),
+      esc(r.phone),
+      esc(r.academic_year),
+      esc(r.admission_date),
+      fee != null ? fee : "",
+      paid,
+      rem === "" ? "" : rem,
+    ].join(",");
+  });
+  const csv = [header, ...lines].join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="students.csv"');
+  return res.send("\uFEFF" + csv);
+});
+
+/** Copy-paste weekly summary (no email server) */
+studentsRouter.get("/operations-digest", async (req, res) => {
+  const instituteId = req.institute.id;
+  const inst = await Institute.findById(instituteId).lean();
+  const total = await Student.countDocuments({ institute_id: instituteId });
+  const start = new Date();
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+  const thisMonth = await Student.countDocuments({ institute_id: instituteId, createdAt: { $gte: start } });
+  const students = await Student.find({ institute_id: instituteId }).select("course_fee_amount amount_paid").lean();
+  let pendingFees = 0;
+  for (const s of students) {
+    const fee = s.course_fee_amount != null ? Number(s.course_fee_amount) : null;
+    if (fee == null) continue;
+    const paid = Number(s.amount_paid || 0);
+    pendingFees += Math.max(0, fee - paid);
+  }
+  const text = [
+    `Institute: ${inst?.name || "—"}`,
+    `Report date: ${new Date().toLocaleString("en-IN")}`,
+    ``,
+    `Total students: ${total}`,
+    `New admissions this month: ${thisMonth}`,
+    `Approx. total pending fee (all students): ₹${Math.round(pendingFees).toLocaleString("en-IN")}`,
+    ``,
+    `(Paste this into email or WhatsApp to your team.)`,
+  ].join("\n");
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  return res.send(text);
+});
+
+studentsRouter.get("/audit", principalRequired, async (req, res) => {
+  const instituteId = req.institute.id;
+  const limit = Math.min(Number(req.query.limit) || 80, 200);
+  const rows = await AuditLog.find({ institute_id: instituteId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+  const logs = rows.map((r) => ({
+    id: r._id.toString(),
+    action: r.action,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id?.toString(),
+    actor_role: r.actor_role,
+    summary: r.summary,
+    created_at: r.createdAt?.toISOString(),
+  }));
+  return res.json({ logs });
+});
+
 studentsRouter.get("/:id/letter-context", async (req, res) => {
   const instituteId = req.institute.id;
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -146,6 +259,10 @@ studentsRouter.get("/:id/letter-context", async (req, res) => {
     principal_name: institute.principal_name,
     letter_head_line: institute.letter_head_line,
     logo_url: institute.logo_url || null,
+    letter_template: institute.letter_template ?? 1,
+    ncte_registration_no: institute.ncte_registration_no || null,
+    affiliation_code: institute.affiliation_code || null,
+    compliance_notes: institute.compliance_notes || null,
   };
 
   let university = null;
@@ -167,6 +284,33 @@ studentsRouter.get("/:id/letter-context", async (req, res) => {
     student: student.toJSON(),
     university,
   });
+});
+
+studentsRouter.get("/:id/document-pack", async (req, res) => {
+  const instituteId = req.institute.id;
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ error: "Not found" });
+  }
+  const [institute, student] = await Promise.all([
+    Institute.findById(instituteId).lean(),
+    Student.findOne({ _id: req.params.id, institute_id: instituteId }),
+  ]);
+  if (!institute || !student) return res.status(404).json({ error: "Not found" });
+  let university = null;
+  if (student.university_id) {
+    const u = await University.findById(student.university_id).lean();
+    if (u) university = u;
+  }
+  try {
+    const pdf = await buildAdmissionPdf(institute, student, university);
+    const zip = await zipAdmissionPack(pdf);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="admission-${student.admission_no || ""}.zip"`);
+    return res.send(zip);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Could not build document pack" });
+  }
 });
 
 studentsRouter.get("/:id", async (req, res) => {
@@ -259,6 +403,18 @@ studentsRouter.post("/", async (req, res) => {
       mark_12th: b.mark_12th?.trim() || null,
       mark_graduation: b.mark_graduation?.trim() || null,
       aadhaar_last4: b.aadhaar_last4?.trim() || null,
+      ncte_sanction_ref: b.ncte_sanction_ref?.trim() || null,
+      b_ed_affiliation_no: b.b_ed_affiliation_no?.trim() || null,
+      payment_receipts: [],
+    });
+
+    if (amount_paid > 0) {
+      await recordPaymentDelta(instituteId, student, 0, amount_paid);
+      await student.save();
+    }
+
+    await logAudit(req, "student.create", "student", student._id, `New admission ${student.admission_no}`, {
+      name: student.full_name,
     });
 
     return res.status(201).json({ student: student.toJSON() });
@@ -279,6 +435,8 @@ studentsRouter.patch("/:id", async (req, res) => {
     institute_id: instituteId,
   });
   if (!student) return res.status(404).json({ error: "Student not found" });
+
+  const previousPaid = Number(student.amount_paid) || 0;
 
   const b = req.body || {};
   const fields = [
@@ -303,6 +461,8 @@ studentsRouter.patch("/:id", async (req, res) => {
     "mark_12th",
     "mark_graduation",
     "aadhaar_last4",
+    "ncte_sanction_ref",
+    "b_ed_affiliation_no",
   ];
 
   if (b.university_id !== undefined) {
@@ -387,6 +547,9 @@ studentsRouter.patch("/:id", async (req, res) => {
   const paidErr2 = validatePaidVsFee(student.course_fee_amount, student.amount_paid);
   if (paidErr2) return res.status(400).json({ error: paidErr2 });
 
+  const newPaid = Number(student.amount_paid) || 0;
+  await recordPaymentDelta(instituteId, student, previousPaid, newPaid);
+
   try {
     await student.save();
   } catch (err) {
@@ -395,10 +558,15 @@ studentsRouter.patch("/:id", async (req, res) => {
       error: err.message || "Could not save student",
     });
   }
+
+  await logAudit(req, "student.update", "student", student._id, `Updated ${student.admission_no}`, {
+    fields: Object.keys(b).filter((k) => b[k] !== undefined),
+  });
+
   return res.json({ student: student.toJSON() });
 });
 
-studentsRouter.delete("/:id", async (req, res) => {
+studentsRouter.delete("/:id", principalRequired, async (req, res) => {
   const instituteId = req.institute.id;
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(404).json({ error: "Student not found" });
@@ -411,6 +579,9 @@ studentsRouter.delete("/:id", async (req, res) => {
   if (!doc) return res.status(404).json({ error: "Student not found" });
 
   await deletePhotoIfOwned(doc.photo_url, instituteId);
+  await logAudit(req, "student.delete", "student", doc._id, `Deleted ${doc.admission_no}`, {
+    name: doc.full_name,
+  });
   await doc.deleteOne();
   return res.json({ ok: true });
 });

@@ -2,7 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { CourseFee } from "../models/CourseFee.js";
 import { University } from "../models/University.js";
-import { authRequired } from "../middleware/auth.js";
+import { authRequired, principalRequired } from "../middleware/auth.js";
 
 export const courseFeesRouter = Router();
 courseFeesRouter.use(authRequired);
@@ -110,7 +110,7 @@ courseFeesRouter.get("/", async (req, res) => {
   return res.json({ fees });
 });
 
-courseFeesRouter.post("/", async (req, res) => {
+courseFeesRouter.post("/", principalRequired, async (req, res) => {
   const instituteId = req.institute.id;
   const b = req.body || {};
   const course_name = b.course_name?.trim();
@@ -154,7 +154,7 @@ courseFeesRouter.post("/", async (req, res) => {
   }
 });
 
-courseFeesRouter.patch("/:id", async (req, res) => {
+courseFeesRouter.patch("/:id", principalRequired, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(404).json({ error: "Not found" });
   }
@@ -186,7 +186,7 @@ courseFeesRouter.patch("/:id", async (req, res) => {
   }
 });
 
-courseFeesRouter.delete("/:id", async (req, res) => {
+courseFeesRouter.delete("/:id", principalRequired, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(404).json({ error: "Not found" });
   }

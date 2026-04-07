@@ -3,7 +3,8 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Login() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, staffLogin, isAuthenticated } = useAuth();
+  const [mode, setMode] = useState("principal");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,7 +17,11 @@ export default function Login() {
     setError("");
     setBusy(true);
     try {
-      await login(email, password);
+      if (mode === "clerk") {
+        await staffLogin(email, password);
+      } else {
+        await login(email, password);
+      }
     } catch (err) {
       setError(err.message || "Login failed");
     } finally {
@@ -29,7 +34,23 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-head">
           <h1 style={{ fontSize: "22px" }}>Institute sign in</h1>
-          <p className="muted">Har institute ka data alag — sirf aapke students yahan dikhenge.</p>
+          <p className="muted">Principal (institute email) ya Clerk (staff email) se login karein.</p>
+        </div>
+        <div className="row" style={{ gap: 8, marginBottom: 16 }}>
+          <button
+            type="button"
+            className={mode === "principal" ? "btn primary" : "btn ghost"}
+            onClick={() => setMode("principal")}
+          >
+            Principal
+          </button>
+          <button
+            type="button"
+            className={mode === "clerk" ? "btn primary" : "btn ghost"}
+            onClick={() => setMode("clerk")}
+          >
+            Staff / Clerk
+          </button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="field">
@@ -59,12 +80,18 @@ export default function Login() {
             {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: "16px", textAlign: "center" }}>
-          Naya institute?{" "}
-          <Link className="link" to="/register">
-            Register
-          </Link>
-        </p>
+        {mode === "principal" ? (
+          <p className="muted" style={{ marginTop: "16px", textAlign: "center" }}>
+            Naya institute?{" "}
+            <Link className="link" to="/register">
+              Register
+            </Link>
+          </p>
+        ) : (
+          <p className="muted" style={{ marginTop: "16px", textAlign: "center", fontSize: 13 }}>
+            Clerk account principal institute profile se banata hai.
+          </p>
+        )}
       </div>
     </div>
   );

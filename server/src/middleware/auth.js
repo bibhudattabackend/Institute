@@ -14,9 +14,21 @@ export function authRequired(req, res, next) {
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.institute = { id: decoded.sub, email: decoded.email };
+    const instituteId = decoded.instituteId || decoded.sub;
+    req.institute = { id: instituteId };
+    req.role = decoded.role || "principal";
+    req.staffId = decoded.staffId || null;
+    req.authSub = decoded.sub;
     next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired session" });
   }
+}
+
+/** Only institute principal (not clerk) */
+export function principalRequired(req, res, next) {
+  if (req.role !== "principal") {
+    return res.status(403).json({ error: "Principal access required" });
+  }
+  next();
 }

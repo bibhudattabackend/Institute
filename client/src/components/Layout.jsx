@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout() {
-  const { institute, logout } = useAuth();
+  const { institute, logout, isPrincipal, role } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -17,6 +17,11 @@ export default function Layout() {
           <div>
             <div className="brand-title">Institute Portal</div>
             <div className="brand-sub">{institute?.name}</div>
+            {!isPrincipal ? (
+              <div className="brand-sub" style={{ color: "var(--accent)", marginTop: 4 }}>
+                Staff ({role})
+              </div>
+            ) : null}
           </div>
         </div>
         <nav className="nav">
@@ -29,14 +34,24 @@ export default function Layout() {
           <NavLink className="nav-link" to="/students/new">
             New admission
           </NavLink>
-          <NavLink className="nav-link" to="/universities">
-            Universities
-          </NavLink>
-          <NavLink className="nav-link" to="/course-fees">
-            Course fees
-          </NavLink>
-          <NavLink className="nav-link" to="/profile">
-            Institute profile
+          {isPrincipal ? (
+            <>
+              <NavLink className="nav-link" to="/universities">
+                Universities
+              </NavLink>
+              <NavLink className="nav-link" to="/course-fees">
+                Course fees
+              </NavLink>
+              <NavLink className="nav-link" to="/profile">
+                Institute profile
+              </NavLink>
+              <NavLink className="nav-link" to="/audit">
+                Audit log
+              </NavLink>
+            </>
+          ) : null}
+          <NavLink className="nav-link" to="/labels">
+            Print labels
           </NavLink>
         </nav>
         <button

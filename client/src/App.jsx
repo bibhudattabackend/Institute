@@ -11,6 +11,8 @@ import Profile from './pages/Profile.jsx'
 import Universities from './pages/Universities.jsx'
 import CourseFees from './pages/CourseFees.jsx'
 import ApplicationForm from './pages/ApplicationForm.jsx'
+import AuditLog from './pages/AuditLog.jsx'
+import Labels from './pages/Labels.jsx'
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -47,6 +49,8 @@ export default function App() {
         <Route path="universities" element={<Universities />} />
         <Route path="course-fees" element={<CourseFees />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="audit" element={<AuditLog />} />
+        <Route path="labels" element={<Labels />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
