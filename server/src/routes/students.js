@@ -145,6 +145,66 @@ studentsRouter.get("/fee-stats", async (req, res) => {
   return res.json({ series: sorted });
 });
 
+/** Dashboard: stats + fee breakdown + charts in one response */
+studentsRouter.get("/insights", async (req, res) => {
+  const instituteId = req.institute.id;
+
+  const total = await Student.countDocuments({ institute_id: instituteId });
+
+  const start = new Date();
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+  const thisMonth = await Student.countDocuments({
+    institute_id: instituteId,
+    createdAt: { $gte: start },
+  });
+
+  const rows = await Student.find({ institute_id: instituteId })
+    .select("payment_receipts course_fee_amount amount_paid academic_year")
+    .lean();
+
+  const byMonth = {};
+  let totalPaid = 0;
+  let totalPending = 0;
+  const yearCount = {};
+
+  for (const s of rows) {
+    totalPaid += Number(s.amount_paid) || 0;
+    const fee = s.course_fee_amount != null ? Number(s.course_fee_amount) : null;
+    if (fee != null && Number.isFinite(fee)) {
+      const paid = Number(s.amount_paid) || 0;
+      totalPending += Math.max(0, fee - paid);
+    }
+    const y = s.academic_year?.trim();
+    if (y) yearCount[y] = (yearCount[y] || 0) + 1;
+
+    for (const r of s.payment_receipts || []) {
+      const d = r.recorded_at ? new Date(r.recorded_at) : new Date();
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      byMonth[key] = (byMonth[key] || 0) + (Number(r.amount) || 0);
+    }
+  }
+
+  const fee_series = Object.entries(byMonth)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, t]) => ({ month, total: Math.round(t * 100) / 100 }));
+
+  const admissions_by_year = Object.entries(yearCount)
+    .sort(([a], [b]) => String(b).localeCompare(String(a)))
+    .map(([year, count]) => ({ year, count }));
+
+  return res.json({
+    total,
+    thisMonth,
+    fee_series,
+    fee_summary: {
+      total_paid: Math.round(totalPaid * 100) / 100,
+      total_pending: Math.round(totalPending * 100) / 100,
+    },
+    admissions_by_year,
+  });
+});
+
 studentsRouter.get("/export.csv", async (req, res) => {
   const instituteId = req.institute.id;
   const rows = await Student.find({ institute_id: instituteId })
