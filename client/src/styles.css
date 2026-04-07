@@ -420,6 +420,11 @@ tbody tr:hover td {
   font-weight: 600;
 }
 
+.pill.danger-soft {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
+
 .error {
   color: #fecaca;
   font-size: 13px;

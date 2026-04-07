@@ -33,6 +33,8 @@ const studentSchema = new mongoose.Schema(
       {
         due_date: { type: String, required: true, trim: true },
         amount: { type: Number, required: true, min: 0 },
+        paid: { type: Boolean, default: false },
+        paid_at: { type: Date, default: null },
       },
     ],
     course_name: { type: String, default: "B.Ed" },
@@ -90,6 +92,15 @@ studentSchema.set("toJSON", {
       ret.remaining_amount = null;
     }
 
+    if (Array.isArray(ret.installments)) {
+      ret.installments = ret.installments.map((x) => ({
+        id: x._id?.toString(),
+        due_date: x.due_date,
+        amount: x.amount,
+        paid: Boolean(x.paid),
+        paid_at: x.paid_at ? new Date(x.paid_at).toISOString() : null,
+      }));
+    }
     const inst = Array.isArray(ret.installments) ? ret.installments : [];
     ret.installments_total = inst.reduce((s, x) => s + (Number(x?.amount) || 0), 0);
 

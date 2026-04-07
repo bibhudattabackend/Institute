@@ -16,7 +16,7 @@ const empty = {
   course_name: "B.Ed",
   course_fee_amount: "",
   amount_paid: "",
-  installments: [{ due_date: "", amount: "" }],
+  installments: [{ due_date: "", amount: "", paid: false, paid_at: null, id: undefined }],
   academic_year: "",
   admission_date: "",
   category: "",
@@ -85,10 +85,13 @@ export default function StudentForm() {
             installments:
               Array.isArray(student.installments) && student.installments.length > 0
                 ? student.installments.map((r) => ({
+                    id: r.id,
                     due_date: r.due_date || "",
                     amount: r.amount != null ? String(r.amount) : "",
+                    paid: Boolean(r.paid),
+                    paid_at: r.paid_at || null,
                   }))
-                : [{ due_date: "", amount: "" }],
+                : [{ due_date: "", amount: "", paid: false, paid_at: null, id: undefined }],
             academic_year: student.academic_year || "",
             admission_date: student.admission_date || "",
             category: student.category || "",
@@ -166,14 +169,66 @@ export default function StudentForm() {
   }
 
   function addInstallmentRow() {
-    setForm((f) => ({ ...f, installments: [...f.installments, { due_date: "", amount: "" }] }));
+    setForm((f) => ({
+      ...f,
+      installments: [...f.installments, { due_date: "", amount: "", paid: false, paid_at: null }],
+    }));
   }
 
   function removeInstallmentRow(i) {
-    setForm((f) => ({
-      ...f,
-      installments: f.installments.length > 1 ? f.installments.filter((_, j) => j !== i) : f.installments,
-    }));
+    setForm((f) => {
+      const row = f.installments[i];
+      if (!row) return f;
+      const nextRows =
+        f.installments.length > 1 ? f.installments.filter((_, j) => j !== i) : f.installments;
+      if (nextRows === f.installments) return f;
+      let ap = Number(f.amount_paid) || 0;
+      if (row.paid) {
+        const amt = Number(row.amount) || 0;
+        ap = Math.max(0, Math.round((ap - amt) * 100) / 100);
+      }
+      return {
+        ...f,
+        amount_paid: String(ap),
+        installments: nextRows,
+      };
+    });
+  }
+
+  function toggleInstallmentPaid(i) {
+    setForm((f) => {
+      const row = f.installments[i];
+      if (!row) return f;
+      const amt = Number(row.amount) || 0;
+      if (amt <= 0 || !String(row.due_date || "").trim()) return f;
+      const nextPaid = !row.paid;
+      const feeCap = Number(f.course_fee_amount);
+      let ap = Number(f.amount_paid) || 0;
+      if (nextPaid) {
+        let newAp = ap + amt;
+        if (Number.isFinite(feeCap) && feeCap > 0) {
+          newAp = Math.min(feeCap, newAp);
+        }
+        if (newAp <= ap) {
+          return f;
+        }
+        return {
+          ...f,
+          amount_paid: String(Math.round(newAp * 100) / 100),
+          installments: f.installments.map((r, j) =>
+            j === i ? { ...r, paid: true, paid_at: new Date().toISOString() } : r
+          ),
+        };
+      }
+      const newAp = Math.max(0, Math.round((ap - amt) * 100) / 100);
+      return {
+        ...f,
+        amount_paid: String(newAp),
+        installments: f.installments.map((r, j) =>
+          j === i ? { ...r, paid: false, paid_at: null } : r
+        ),
+      };
+    });
   }
 
   async function onPhoto(e) {
@@ -206,8 +261,11 @@ export default function StudentForm() {
         installments: form.installments
           .filter((r) => r.due_date?.trim() && r.amount !== "" && Number.isFinite(Number(r.amount)))
           .map((r) => ({
+            ...(r.id ? { id: r.id } : {}),
             due_date: r.due_date.trim(),
             amount: Number(r.amount),
+            paid: Boolean(r.paid),
+            paid_at: r.paid_at || null,
           })),
       };
       if (isEdit) {
@@ -384,8 +442,9 @@ export default function StudentForm() {
           Installment schedule (optional)
         </h3>
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-          Baqi raashi ke hisaab se dates aur amounts likho (jaise do kishton mein). Sum ideally remaining (
-          ₹{remaining.toLocaleString("en-IN")}) ke barabar ho.
+          Baqi raashi ke hisaab se dates aur amounts likho. Jab kisi installment ki payment le lo, row par{" "}
+          <strong>Paid</strong> tick karo — amount paid auto update hoga aur receipt banega. Dashboard par unpaid
+          rows (due date + amount) dikhenge.
         </p>
         {installmentMismatch ? (
           <div className="error" style={{ marginBottom: 10 }}>
@@ -399,17 +458,19 @@ export default function StudentForm() {
               <tr>
                 <th style={{ textAlign: "left", padding: "8px 8px 8px 0" }}>Due date</th>
                 <th style={{ textAlign: "left", padding: 8 }}>Amount (INR)</th>
-                <th style={{ width: 80 }} />
+                <th style={{ textAlign: "center", padding: 8 }}>Paid</th>
+                <th style={{ width: 88 }} />
               </tr>
             </thead>
             <tbody>
               {form.installments.map((row, i) => (
-                <tr key={i}>
+                <tr key={row.id || `inst-${i}`}>
                   <td style={{ padding: "4px 8px 4px 0" }}>
                     <input
                       type="date"
                       value={row.due_date}
                       onChange={(e) => setInstallment(i, "due_date", e.target.value)}
+                      disabled={row.paid}
                     />
                   </td>
                   <td style={{ padding: 4 }}>
@@ -420,10 +481,32 @@ export default function StudentForm() {
                       placeholder="0"
                       value={row.amount}
                       onChange={(e) => setInstallment(i, "amount", e.target.value)}
+                      disabled={row.paid}
                     />
                   </td>
+                  <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                    <label style={{ cursor: row.due_date?.trim() && Number(row.amount) > 0 ? "pointer" : "not-allowed" }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(row.paid)}
+                        onChange={() => toggleInstallmentPaid(i)}
+                        disabled={!row.due_date?.trim() || !(Number(row.amount) > 0)}
+                        title="Payment milne ke baad tick karein"
+                      />
+                    </label>
+                    {row.paid && row.paid_at ? (
+                      <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                        {new Date(row.paid_at).toLocaleDateString()}
+                      </div>
+                    ) : null}
+                  </td>
                   <td>
-                    <button type="button" className="btn ghost danger" onClick={() => removeInstallmentRow(i)}>
+                    <button
+                      type="button"
+                      className="btn ghost danger"
+                      onClick={() => removeInstallmentRow(i)}
+                      disabled={row.paid}
+                    >
                       Remove
                     </button>
                   </td>

@@ -38,11 +38,23 @@ async function assertUniversity(instituteId, universityId) {
 function normalizeInstallments(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((row) => ({
-      due_date: row?.due_date != null ? String(row.due_date).trim() : "",
-      amount: row?.amount != null && row.amount !== "" ? Number(row.amount) : NaN,
-    }))
-    .filter((row) => row.due_date && Number.isFinite(row.amount) && row.amount > 0);
+    .map((row) => {
+      const due_date = row?.due_date != null ? String(row.due_date).trim() : "";
+      const amount = row?.amount != null && row.amount !== "" ? Number(row.amount) : NaN;
+      if (!due_date || !Number.isFinite(amount) || amount <= 0) return null;
+      const paid = Boolean(row?.paid);
+      const piece = {
+        due_date,
+        amount,
+        paid,
+        paid_at: paid ? (row.paid_at ? new Date(row.paid_at) : new Date()) : null,
+      };
+      if (row.id && mongoose.isValidObjectId(String(row.id))) {
+        piece._id = new mongoose.Types.ObjectId(String(row.id));
+      }
+      return piece;
+    })
+    .filter(Boolean);
 }
 
 function validatePaidVsFee(courseFeeAmount, amountPaid) {
@@ -193,6 +205,49 @@ studentsRouter.get("/insights", async (req, res) => {
     .sort(([a], [b]) => String(b).localeCompare(String(a)))
     .map(([year, count]) => ({ year, count }));
 
+  const instRows = await Student.find({ institute_id: instituteId })
+    .select("full_name admission_no phone installments")
+    .lean();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const pending_installments = [];
+  for (const s of instRows) {
+    for (const ins of s.installments || []) {
+      if (ins.paid) continue;
+      const amt = Number(ins.amount) || 0;
+      if (amt <= 0) continue;
+      const dueStr = ins.due_date ? String(ins.due_date).trim() : "";
+      let daysUntil = null;
+      let overdue = false;
+      if (dueStr) {
+        const dueTime = new Date(`${dueStr}T12:00:00`);
+        if (!Number.isNaN(dueTime.getTime())) {
+          daysUntil = Math.round((dueTime - today) / (24 * 60 * 60 * 1000));
+          overdue = daysUntil < 0;
+        }
+      }
+      pending_installments.push({
+        student_id: s._id.toString(),
+        full_name: s.full_name,
+        admission_no: s.admission_no,
+        phone: s.phone || null,
+        due_date: dueStr,
+        amount: Math.round(amt * 100) / 100,
+        days_until: daysUntil,
+        overdue,
+      });
+    }
+  }
+  pending_installments.sort((a, b) => {
+    const ta = a.due_date ? new Date(`${a.due_date}T12:00:00`).getTime() : 0;
+    const tb = b.due_date ? new Date(`${b.due_date}T12:00:00`).getTime() : 0;
+    const fa = Number.isNaN(ta) ? 0 : ta;
+    const fb = Number.isNaN(tb) ? 0 : tb;
+    return fa - fb;
+  });
+
   return res.json({
     total,
     thisMonth,
@@ -202,6 +257,7 @@ studentsRouter.get("/insights", async (req, res) => {
       total_pending: Math.round(totalPending * 100) / 100,
     },
     admissions_by_year,
+    pending_installments,
   });
 });
 
@@ -469,7 +525,7 @@ studentsRouter.post("/", async (req, res) => {
     });
 
     if (amount_paid > 0) {
-      await recordPaymentDelta(instituteId, student, 0, amount_paid);
+      await recordPaymentDelta(instituteId, student, 0, amount_paid, "Admission fee");
       await student.save();
     }
 

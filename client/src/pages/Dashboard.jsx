@@ -90,6 +90,8 @@ export default function Dashboard() {
   const hasMonthlyReceipts = chartData.length > 0;
   const hasYearBreakdown = admissionsByYear.length > 0;
 
+  const pendingInstallments = insights?.pending_installments || [];
+
   return (
     <div className="page">
       <div className="dashboard-hero">
@@ -125,6 +127,75 @@ export default function Dashboard() {
           <div className="stat">{formatInr(feeSummary.total_pending)}</div>
           <div className="stat-label">Total pending (course fee − paid)</div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: "22px" }}>
+        <h2 className="dashboard-chart-title">Unpaid installments (due list)</h2>
+        <p className="muted dashboard-chart-desc">
+          Student form mein jo installment rows abhi <strong>Paid</strong> nahi — yahan due date, amount, aur
+          overdue flag dikhega. Payment lene ke baad usi row par tick karein.
+        </p>
+        {pendingInstallments.length > 0 ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Admission</th>
+                  <th>Phone</th>
+                  <th>Due date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {pendingInstallments.map((row, i) => (
+                  <tr key={`${row.student_id}-${row.due_date}-${i}`}>
+                    <td>{row.full_name}</td>
+                    <td>
+                      <span className="pill">{row.admission_no}</span>
+                    </td>
+                    <td>{row.phone || "—"}</td>
+                    <td>{row.due_date || "—"}</td>
+                    <td>{formatInr(row.amount)}</td>
+                    <td>
+                      {row.overdue ? (
+                        <span className="pill danger-soft">
+                          Overdue
+                          {row.days_until != null ? ` · ${Math.abs(row.days_until)}d` : ""}
+                        </span>
+                      ) : row.days_until != null ? (
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          {row.days_until === 0
+                            ? "Due today"
+                            : row.days_until > 0
+                              ? `Due in ${row.days_until}d`
+                              : `Overdue ${Math.abs(row.days_until)}d`}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>
+                      <Link
+                        className="btn ghost"
+                        style={{ fontSize: 13, padding: "6px 10px" }}
+                        to={`/students/${row.student_id}/edit`}
+                      >
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Koi unpaid installment nahi — ya abhi students par installment schedule set nahi hai.
+          </p>
+        )}
       </div>
 
       <div className="dashboard-charts-row">
