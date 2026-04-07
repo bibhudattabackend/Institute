@@ -3,7 +3,7 @@
 # After first deploy, open Dashboard → this service → Environment and set:
 #   MONGODB_URI              = MongoDB Atlas connection string
 #   JWT_SECRET               = long random string (production)
-#   CLIENT_ORIGIN            = your frontend URL, e.g. https://your-app.vercel.app
+#   CLIENT_ORIGIN            = Vercel frontend (also set below for Blueprint deploys)
 #   CLOUDINARY_CLOUD_NAME    = required for student photo uploads
 #   CLOUDINARY_API_KEY
 #   CLOUDINARY_API_SECRET
@@ -23,3 +23,5 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20.18.0"
+      - key: CLIENT_ORIGIN
+        value: https://institute-sandy-beta.vercel.app
