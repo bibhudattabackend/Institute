@@ -1,0 +1,22 @@
+# Render Blueprint — https://render.com/docs/infrastructure-as-code
+#
+# After first deploy, open Dashboard → this service → Environment and set:
+#   MONGODB_URI   = MongoDB Atlas connection string
+#   JWT_SECRET    = long random string (production)
+#   CLIENT_ORIGIN = your frontend URL, e.g. https://your-app.vercel.app
+#
+# Build runs seed after install (needs MONGODB_URI set before deploy). Duplicate institutes are skipped.
+
+services:
+  - type: web
+    name: bed-institute-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run seed
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
