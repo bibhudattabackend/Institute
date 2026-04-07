@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { Institute } from "../models/Institute.js";
 import { signToken, authRequired } from "../middleware/auth.js";
+import { destroyInstituteLogoIfOwned } from "../cloudinaryPhotos.js";
 
 export const authRouter = Router();
 
@@ -79,6 +80,7 @@ authRouter.patch("/me", authRequired, async (req, res) => {
     address,
     principal_name,
     letter_head_line,
+    logo_url,
     password,
     current_password,
   } = req.body || {};
@@ -87,6 +89,7 @@ authRouter.patch("/me", authRequired, async (req, res) => {
   if (!row) return res.status(404).json({ error: "Institute not found" });
 
   const updates = {};
+  const instituteId = req.institute.id;
 
   if (name != null) updates.name = String(name).trim();
   if (phone !== undefined) updates.phone = phone ? String(phone).trim() : null;
@@ -96,6 +99,13 @@ authRouter.patch("/me", authRequired, async (req, res) => {
   }
   if (letter_head_line !== undefined) {
     updates.letter_head_line = letter_head_line ? String(letter_head_line).trim() : null;
+  }
+  if (logo_url !== undefined) {
+    const nextLogo = logo_url ? String(logo_url).trim() : null;
+    if (nextLogo !== row.logo_url) {
+      await destroyInstituteLogoIfOwned(row.logo_url, instituteId);
+      updates.logo_url = nextLogo;
+    }
   }
 
   if (password != null) {

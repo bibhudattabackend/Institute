@@ -32,10 +32,19 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <h1>Dashboard</h1>
-      <p className="muted">
-        Welcome, <strong>{institute?.name}</strong>. Yahan aapke institute ke admissions ka snapshot hai.
-      </p>
+      <div className="dashboard-hero">
+        {institute?.logo_url ? (
+          <div className="dashboard-logo-wrap">
+            <img src={institute.logo_url} alt="" className="dashboard-logo" />
+          </div>
+        ) : null}
+        <div>
+          <h1 style={{ margin: "0 0 8px" }}>Dashboard</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            Welcome, <strong>{institute?.name}</strong>. Yahan aapke institute ke admissions ka snapshot hai.
+          </p>
+        </div>
+      </div>
       {error ? <div className="error">{error}</div> : null}
 
       <div className="grid-2" style={{ marginTop: "22px" }}>

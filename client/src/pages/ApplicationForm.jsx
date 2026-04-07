@@ -93,6 +93,11 @@ export default function ApplicationForm() {
       </div>
 
       <div className="app-form-sheet">
+        {institute.logo_url ? (
+          <div className="app-form-logo-row">
+            <img src={institute.logo_url} alt="" className="app-form-institute-logo" />
+          </div>
+        ) : null}
         <div className="app-form-header">
           <div>
             <div className="app-form-title">APPLICATION FOR ADMISSION</div>

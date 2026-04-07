@@ -145,6 +145,7 @@ studentsRouter.get("/:id/letter-context", async (req, res) => {
     address: institute.address,
     principal_name: institute.principal_name,
     letter_head_line: institute.letter_head_line,
+    logo_url: institute.logo_url || null,
   };
 
   let university = null;

@@ -65,3 +65,30 @@ export async function destroyCloudinaryPhotoIfOwned(photoUrl, instituteId) {
     /* ignore */
   }
 }
+
+const LOGO_FOLDER_PREFIX = "bed-institute-logos";
+
+export async function uploadInstituteLogoBuffer(buffer, mimetype, instituteId) {
+  ensureConfigured();
+  const dataUri = `data:${mimetype};base64,${buffer.toString("base64")}`;
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: `${LOGO_FOLDER_PREFIX}/${instituteId}`,
+    resource_type: "image",
+    overwrite: false,
+  });
+  return result.secure_url;
+}
+
+export async function destroyInstituteLogoIfOwned(logoUrl, instituteId) {
+  if (!logoUrl || !isCloudinaryEnabled()) return;
+  const publicId = publicIdFromCloudinaryUrl(logoUrl);
+  if (!publicId) return;
+  const prefix = `${LOGO_FOLDER_PREFIX}/${instituteId}/`;
+  if (!publicId.startsWith(prefix)) return;
+  ensureConfigured();
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch {
+    /* ignore */
+  }
+}

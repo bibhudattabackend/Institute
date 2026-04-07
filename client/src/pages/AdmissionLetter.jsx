@@ -85,6 +85,11 @@ export default function AdmissionLetter() {
 
       <div className="letter-sheet">
         <div className="letter-head">
+          {institute.logo_url ? (
+            <div className="letter-logo-wrap">
+              <img src={institute.logo_url} alt="" className="letter-logo" />
+            </div>
+          ) : null}
           <h1>{institute.name}</h1>
           <div className="letter-meta">{headLine}</div>
           {institute.address ? <div className="letter-meta">{institute.address}</div> : null}

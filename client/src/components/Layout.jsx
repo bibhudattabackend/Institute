@@ -9,7 +9,11 @@ export default function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">B.Ed</span>
+          {institute?.logo_url ? (
+            <img src={institute.logo_url} alt="" className="brand-logo" />
+          ) : (
+            <span className="brand-mark">B.Ed</span>
+          )}
           <div>
             <div className="brand-title">Institute Portal</div>
             <div className="brand-sub">{institute?.name}</div>

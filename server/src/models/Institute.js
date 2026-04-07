@@ -9,6 +9,8 @@ const instituteSchema = new mongoose.Schema(
     address: { type: String, default: null },
     principal_name: { type: String, default: null },
     letter_head_line: { type: String, default: null },
+    /** Cloudinary URL for letterhead / dashboard */
+    logo_url: { type: String, default: null },
     next_admission_seq: { type: Number, default: 0 },
   },
   { timestamps: true }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api, apiUpload } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Profile() {
@@ -28,9 +28,50 @@ export default function Profile() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   function set(k, v) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function onLogoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoBusy(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const { logo_url } = await apiUpload("/api/upload/institute-logo", fd);
+      await api("/api/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ logo_url }),
+      });
+      await refreshInstitute();
+      setMessage("Logo saved.");
+    } catch (err) {
+      setError(err.message || "Logo upload failed");
+    } finally {
+      setLogoBusy(false);
+      e.target.value = "";
+    }
+  }
+
+  async function removeLogo() {
+    setLogoBusy(true);
+    setError("");
+    try {
+      await api("/api/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ logo_url: null }),
+      });
+      await refreshInstitute();
+      setMessage("Logo removed.");
+    } catch (err) {
+      setError(err.message || "Could not remove logo");
+    } finally {
+      setLogoBusy(false);
+    }
   }
 
   async function onSubmit(e) {
@@ -70,6 +111,39 @@ export default function Profile() {
       <p className="muted">
         Letter of admission par jo naam, address aur principal dikhega — woh yahan se set hota hai.
       </p>
+
+      <div className="card" style={{ marginTop: "18px" }}>
+        <h2 className="form-section-title">Institute logo</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Letterhead, application form aur dashboard par centre / header mein dikhega (PNG/JPG, max 2 MB).
+        </p>
+        <div className="profile-logo-row">
+          <div className="profile-logo-preview">
+            {institute?.logo_url ? (
+              <img src={institute.logo_url} alt="" className="profile-logo-img" />
+            ) : (
+              <span className="muted">Abhi koi logo nahi</span>
+            )}
+          </div>
+          <div className="profile-logo-actions">
+            <label className="btn primary" style={{ cursor: logoBusy ? "wait" : "pointer" }}>
+              {logoBusy ? "Uploading…" : "Upload logo"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                onChange={onLogoChange}
+                disabled={logoBusy}
+              />
+            </label>
+            {institute?.logo_url ? (
+              <button type="button" className="btn ghost" onClick={removeLogo} disabled={logoBusy}>
+                Remove
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
 
       <form className="card" style={{ marginTop: "18px" }} onSubmit={onSubmit}>
         <div className="form-grid">
