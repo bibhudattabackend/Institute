@@ -11,7 +11,13 @@ import { courseFeesRouter } from "./routes/courseFees.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
-const origin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+
+/** Comma-separated list, e.g. https://app.vercel.app,http://localhost:5173 */
+let corsOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+if (corsOrigins.length === 0) corsOrigins = ["http://localhost:5173"];
 
 if (!isCloudinaryEnabled()) {
   console.warn(
@@ -19,7 +25,12 @@ if (!isCloudinaryEnabled()) {
   );
 }
 
-app.use(cors({ origin, credentials: true }));
+app.use(
+  cors({
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/api/health", (_req, res) => {
